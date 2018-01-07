@@ -5,7 +5,8 @@ var FluidParticles = (function () {
 
     var State = {
         EDITING: 0,
-        SIMULATING: 1
+        SIMULATING: 1,
+				LOADPLAY: 2
     };
 
     var GRID_WIDTH = 40,
@@ -34,7 +35,7 @@ var FluidParticles = (function () {
             }
         }).bind(this),
         (function () {
-            this.redrawUI(); 
+            this.redrawUI();
         }).bind(this));
 
         this.simulatorRenderer = new SimulatorRenderer(this.canvas, this.wgl, this.projectionMatrix, this.camera, [GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH], (function () {
@@ -48,7 +49,6 @@ var FluidParticles = (function () {
             this.state = State.EDITING;
 
             this.startButton = document.getElementById('start-button');
-
             this.startButton.addEventListener('click', (function () {
                 if (this.state === State.EDITING) {
                     if (this.boxEditor.boxes.length > 0) {
@@ -61,45 +61,52 @@ var FluidParticles = (function () {
                 }
             }).bind(this));
 
+						this.loadButton = document.getElementById('load-button');
+						this.loadButton.addEventListener('click', (function () {
+								if (this.state === State.EDITING) {
+										if (this.boxEditor.boxes.length > 0) {
+												this.startSimulation();
+										}
+										this.redrawUI();
+								} else if (this.state === State.SIMULATING) {
+										this.stopSimulation();
+										this.redrawUI();
+								}
+						}).bind(this));
+
             this.currentPresetIndex = 0;
             this.editedSinceLastPreset = false; //whether the user has edited the last set preset
             var PRESETS = [
                 //dam break
                 [
-                    new BoxEditor.AABB([0, 0, 0], [15, 20, 20]) 
+                    new BoxEditor.AABB([0, 0, 0], [15, 20, 20])
                 ],
 
                 //block drop
                 [
                     new BoxEditor.AABB([0, 0, 0], [40, 7, 20]),
-                    new BoxEditor.AABB([12, 12, 5], [28, 20, 15]) 
+                    new BoxEditor.AABB([12, 12, 5], [28, 20, 15])
                 ],
 
                 //double splash
                 [
                     new BoxEditor.AABB([0, 0, 0], [10, 20, 15]),
-                    new BoxEditor.AABB([30, 0, 5], [40, 20, 20]) 
+                    new BoxEditor.AABB([30, 0, 5], [40, 20, 20])
                 ],
 
             ];
-            
+
             this.presetButton = document.getElementById('preset-button');
             this.presetButton.addEventListener('click', (function () {
                 this.editedSinceLastPreset = false;
-
                 this.boxEditor.boxes.length = 0;
-
                 var preset = PRESETS[this.currentPresetIndex];
                 for (var i = 0; i < preset.length; ++i) {
                     this.boxEditor.boxes.push(preset[i].clone());
                 }
-
-                this.currentPresetIndex = (this.currentPresetIndex + 1) % PRESETS.length; 
-
+                this.currentPresetIndex = (this.currentPresetIndex + 1) % PRESETS.length;
                 this.redrawUI();
-
             }).bind(this));
-
 
 
             ////////////////////////////////////////////////////////
@@ -111,8 +118,7 @@ var FluidParticles = (function () {
             this.timeStep = 1.0 / 60.0;
 
             this.densitySlider = new Slider(document.getElementById('density-slider'), this.gridCellDensity, 0.2, 3.0, (function (value) {
-                this.gridCellDensity = value; 
-
+                this.gridCellDensity = value;
                 this.redrawUI();
             }).bind(this));
 
@@ -126,7 +132,6 @@ var FluidParticles = (function () {
 
 
             this.redrawUI();
-
 
             this.presetButton.click();
 
@@ -223,7 +228,6 @@ var FluidParticles = (function () {
         var simulatingElements = document.querySelectorAll('.simulating-ui');
         var editingElements = document.querySelectorAll('.editing-ui');
 
-
         if (this.state === State.SIMULATING) {
             for (var i = 0; i < simulatingElements.length; ++i) {
                 simulatingElements[i].style.display = 'block';
@@ -233,10 +237,12 @@ var FluidParticles = (function () {
                 editingElements[i].style.display = 'none';
             }
 
-
             this.startButton.textContent = 'Edit';
             this.startButton.className = 'start-button-active';
-        } else if (this.state === State.EDITING) {
+						this.startButton.textContent = 'Load';
+						this.loadButton.className = 'load-button-active';
+        }
+				else if (this.state === State.EDITING) {
             for (var i = 0; i < simulatingElements.length; ++i) {
                 simulatingElements[i].style.display = 'none';
             }
@@ -248,13 +254,16 @@ var FluidParticles = (function () {
             document.getElementById('particle-count').innerHTML = this.getParticleCount().toFixed(0) + ' particles';
 
             if (this.boxEditor.boxes.length >= 2 ||
-                this.boxEditor.boxes.length === 1 && (this.boxEditor.interactionState === null || this.boxEditor.interactionState.mode !== BoxEditor.InteractionMode.EXTRUDING && this.boxEditor.interactionState.mode !== BoxEditor.InteractionMode.DRAWING)) { 
+                this.boxEditor.boxes.length === 1 && (this.boxEditor.interactionState === null || this.boxEditor.interactionState.mode !== BoxEditor.InteractionMode.EXTRUDING && this.boxEditor.interactionState.mode !== BoxEditor.InteractionMode.DRAWING)) {
                 this.startButton.className = 'start-button-active';
+								this.loadButton.className = 'load-button-active';
             } else {
                 this.startButton.className = 'start-button-inactive';
+								this.loadButton.className = 'load-button-inactive';
             }
 
-            this.startButton.textContent = 'Start';
+            this.startButton.textContent = 'Starts';
+						this.loadButton.textContent = 'Load';
 
             if (this.editedSinceLastPreset) {
                 this.presetButton.innerHTML = 'Use Preset';
@@ -312,7 +321,7 @@ var FluidParticles = (function () {
 
         var particleCount = particlesWidth * particlesHeight;
         var particlePositions = [];
-        
+
         var boxEditor = this.boxEditor;
 
         var totalVolume = 0;
@@ -323,9 +332,9 @@ var FluidParticles = (function () {
         var particlesCreatedSoFar = 0;
         for (var i = 0; i < boxEditor.boxes.length; ++i) {
             var box = boxEditor.boxes[i];
-            
+
             var particlesInBox = 0;
-            if (i < boxEditor.boxes.length - 1) { 
+            if (i < boxEditor.boxes.length - 1) {
                 particlesInBox = Math.floor(particleCount * box.computeVolume() / totalVolume);
             } else { //for the last box we just use up all the remaining particles
                 particlesInBox = particleCount - particlesCreatedSoFar;
@@ -374,4 +383,3 @@ var FluidParticles = (function () {
 
     return FluidParticles;
 }());
-
