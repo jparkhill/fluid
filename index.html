@@ -80,6 +80,7 @@
 
         <div id="placeholder"></div>
 
+				<script src="xyzfile.js"></script>
         <script src="wrappedgl.js"></script>
         <script src="utilities.js"></script>
         <script src="camera.js"></script>
@@ -114,16 +115,43 @@
 				    };
 				    for (var i = 0; i < items.length; i++) {
 				        // Skip content if not image
-				        if (items[i].type.indexOf("image") == -1) continue;
-				        // Retrieve image on clipboard as blob
-				        var blob = items[i].getAsFile();
-				        if(typeof(callback) == "function"){
-				            callback(blob);
+				        //if (items[i].type.indexOf("image") == -1) continue;
+								if (items[i].type.indexOf("text/plain") != -1)
+								{
+								if(typeof(callback) == "function"){
+									 items[i].getAsString(callback);
 				        }
+							}
+								else
+								{
+									console.log("Cannot parse clipboard.");
+									continue;
+									var blb = items[i].getAsFile();
+								}
 				    }
 				}
 
-				// Renders blob to myimage. 
+				function stringToXYZ(blob){
+					console.log("Got: ")
+					console.log(blob);
+					xyzParser(blob);
+				};
+
+				function blobToXYZ(blob){
+					console.log(blob.type)
+					if (blob.type == "text/plain")
+					{
+					console.log("Text Plain!")
+					var reader = new FileReader();
+					reader.addEventListener("loadend", function() {
+					// reader.result contains the contents of blob as a typed array
+					});
+					reader.readAsText(blob);
+					console.log(reader.result);
+				}
+				};
+
+				// Renders blob to myimage.
 				function renderBlobImage(imageBlob){
 						// If there's an image, display it in the canvas
 						if(imageBlob){
@@ -152,7 +180,7 @@
 
 				window.addEventListener("paste", function(e){
 				    // Handle the event
-				    retriveClipboardBlob(e, renderBlobImage);
+				    retriveClipboardBlob(e, stringToXYZ);
 				}, false);
 
             function concatenateWords (list) {
